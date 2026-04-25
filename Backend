@@ -121,60 +121,66 @@ def pegar_arquivo(pasta):
 
 def enviar_auto(conn, caminho, maquina):
     log("Envio iniciado", maquina)
-    
     with open(caminho, "rb") as f:
         linhas = list(f)
     if not linhas:
         return "NORMAL"
-    try:
-        conn.sendall(linhas[0])
-    except (ConnectionResetError,BrokenPipeError,OSError):
-        log("Conexão perdida durante envio",maquina)
-        return
     modo_dnc = False
     pausado = False
-    pronto, _, _ = select.select([conn], [], [], 0.2)
-    if pronto:
-        ctrl = conn.recv(1)
-        if ctrl == XOFF:
-            modo_dnc = True
-            pausado = True
-            maquina_atividade(maquina, "Usinando")
-            
-    if modo_dnc:
-        for linha in linhas[1:]:
-            while pausado:
-                pronto, _, _ = select.select([conn], [], [], 0.5)
-                if pronto:
-                    ctrl = conn.recv(1)
-                    if ctrl == XON:
-                        pausado = False
-            try:
-                conn.sendall(linha)
-            except (ConnectionResetError,BrokenPipeError,OSError):
-                log("Conexão perdida durante DNC",maquina)
-                return "DNC"
+    try:
+        conn.sendall(linhas[0])
+    except (ConnectionResetError, BrokenPipeError, OSError):
+        log("Conexão perdida durante envio", maquina)
+        return
+    for linha in linhas[1:]:
+        try:
             pronto, _, _ = select.select([conn], [], [], 0.01)
-            if pronto:
-                ctrl = conn.recv(1)
-                if ctrl == XOFF:
+        except:
+            pronto = []
+        if pronto:
+            try:
+                dados = conn.recv(32)
+            except:
+                dados = b""
+            for ctrl in dados:
+                if ctrl == 0x13:  # XOFF
+                    modo_dnc = True
                     pausado = True
+                    maquina_atividade(maquina, "Usinando")
+                elif ctrl == 0x11:  # XON
+                    pausado = False
+        while pausado:
+            try:
+                pronto, _, _ = select.select([conn], [], [], 0.5)
+            except:
+                pronto = []
+            if pronto:
+                try:
+                    dados = conn.recv(32)
+                except:
+                    dados = b""
+                for ctrl in dados:
+                    if ctrl == 0x11:  # XON
+                        pausado = False
+        try:
+            conn.sendall(linha)
+        except (ConnectionResetError, BrokenPipeError, OSError):
+            log("Conexão perdida durante envio", maquina)
+            return "DNC" if modo_dnc else "NORMAL"
+        if not modo_dnc:
+            time.sleep(0.02)
+
+    if modo_dnc:
         log("Programa finalizado", maquina)
         log_geral_evento(maquina, conn.getpeername()[0], "Usinagem finalizada")
         return "DNC"
     else:
-        for linha in linhas[1:]:
-            try:
-                conn.sendall(linha)
-            except (ConnectionResetError, BrokenPipeError,OSError):
-                return "NORMAL"
-            time.sleep(0.02)
         log("Transferência finalizada", maquina)
         log_geral_evento(maquina, conn.getpeername()[0], "Programa enviado com sucesso")
         return "NORMAL"
 
 def atender_conexao(conn, addr):
-
+    bloquear_pedidos = False
     conn.settimeout(0.5)
     ip = addr[0]
     log(f"Conectado: {addr}")
@@ -214,7 +220,7 @@ def atender_conexao(conn, addr):
                     if maquina == "DESCONHECIDA":
                         log(f"IP não mapeado: {ip}","GERAL")
                         continue
-                    if b in HANDSHAKE:
+                    if b in HANDSHAKE and not bloquear_pedidos:
                         maquina_conectada(maquina, ip)
                         pasta = os.path.join(PASTA_ENVIAR, maquina)
                         log("Preparando envio",maquina)
@@ -223,6 +229,7 @@ def atender_conexao(conn, addr):
                             estado = "ENVIANDO"
                             maquina_atividade(maquina, "Enviando")
                             modo = enviar_auto(conn, caminho, maquina)
+                            bloquear_pedidos = True
                             if modo == "NORMAL":
                                 os.remove(caminho)
                                 log("Arquivo removido após envio", maquina)
@@ -281,6 +288,7 @@ def atender_conexao(conn, addr):
         if maquina in maquinas:
             maquina_Offline(maquina)
         conn.close()
+        bloquear_pedidos = False
         log("Conexão encerrada", maquina)
         log_geral_evento(maquina,ip,"CONEXÃO ENCERRADA")
 
