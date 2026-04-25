@@ -229,7 +229,8 @@ def atender_conexao(conn, addr):
                             estado = "ENVIANDO"
                             maquina_atividade(maquina, "Enviando")
                             modo = enviar_auto(conn, caminho, maquina)
-                            bloquear_pedidos = True
+                            if modo == "DNC":
+                                bloquear_pedidos = True
                             if modo == "NORMAL":
                                 os.remove(caminho)
                                 log("Arquivo removido após envio", maquina)
