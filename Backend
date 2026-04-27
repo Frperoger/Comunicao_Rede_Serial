@@ -180,7 +180,6 @@ def enviar_auto(conn, caminho, maquina):
         return "NORMAL"
 
 def atender_conexao(conn, addr):
-    bloquear_pedidos = False
     conn.settimeout(0.5)
     ip = addr[0]
     log(f"Conectado: {addr}")
@@ -220,7 +219,7 @@ def atender_conexao(conn, addr):
                     if maquina == "DESCONHECIDA":
                         log(f"IP não mapeado: {ip}","GERAL")
                         continue
-                    if b in HANDSHAKE and not bloquear_pedidos:
+                    if b in HANDSHAKE and estado == "IDLE":
                         maquina_conectada(maquina, ip)
                         pasta = os.path.join(PASTA_ENVIAR, maquina)
                         log("Preparando envio",maquina)
@@ -230,7 +229,6 @@ def atender_conexao(conn, addr):
                             maquina_atividade(maquina, "Enviando")
                             modo = enviar_auto(conn, caminho, maquina)
                             if modo == "DNC":
-                                bloquear_pedidos = True
                             if modo == "NORMAL":
                                 os.remove(caminho)
                                 log("Arquivo removido após envio", maquina)
@@ -289,7 +287,6 @@ def atender_conexao(conn, addr):
         if maquina in maquinas:
             maquina_Offline(maquina)
         conn.close()
-        bloquear_pedidos = False
         log("Conexão encerrada", maquina)
         log_geral_evento(maquina,ip,"CONEXÃO ENCERRADA")
 
