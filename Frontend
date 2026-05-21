@@ -4,6 +4,7 @@ import threading
 import tkinter as tk
 from threading import Lock
 import queue
+import time
 
 SERVER_IP = "192.168.0.2"
 PORT = 8898
@@ -15,24 +16,41 @@ fila_estado = queue.Queue()
 # ================= RECEBER ESTADO =================
 
 def receber_estado():
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.connect((SERVER_IP, PORT))
-    sock.settimeout(1)
-    buffer = ""
     while True:
         try:
-            data = sock.recv(4096).decode()
-        except socket.timeout:
-            continue
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.connect((SERVER_IP, PORT))
+            sock.settimeout(1)
+            buffer = ""
+            while True:
+                try:
+                    data = sock.recv(4096).decode()
+                except socket.timeout:
+                    continue
+                
+                if not data:
+                    raise ConnectionError("Servidor desconectou")
+                
+                buffer += data
+
+                while "\n" in buffer:
+                    linha, buffer = buffer.split("\n", 1)
+                    try:
+                        estado = json.loads(linha)
+                        fila_estado.put(estado)
+                    except json.JSONDecodeError:
+                        print("Json inválido recebido")
         
-        if not data:
-            raise ConnectionError("Servidor desconectou")
-        
-        buffer += data
-        if "\n" in buffer:
-            linha, buffer = buffer.split("\n", 1)
-            estado = json.loads(linha)
-            fila_estado.put(estado)
+        except Exception as e:
+            print("Conexão perdida:", e)
+        finally:
+            if sock:
+                try:
+                    sock.close()
+                except:
+                    pass
+        print ("Reconectado em 3 segundos")
+        time.sleep(3)
 # ================= GUI =================
 
 root = tk.Tk()
@@ -49,12 +67,12 @@ def criar_cards():
     root.configure(bg="#A3A6A5")
 
     for i, nome in enumerate([
-        "CNC01 Gustavo",
-        "CNC02 Anderson",
-        "Galaxy20 Robson",
-        "G240 Gabriel",
-        "Galaxy50 Nairson",
-        "Multiplic35D Wesley"
+        "CNC01",
+        "CNC02",
+        "Galaxy20",
+        "G240",
+        "Galaxy50",
+        "Multiplic35D"
     ]):
         f = tk.Frame(frame, width=200, height=70, relief="ridge", borderwidth=2)
         f.grid(row=i//3, column=i%3, padx=10, pady=10)
