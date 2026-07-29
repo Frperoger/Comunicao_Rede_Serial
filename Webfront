@@ -295,14 +295,17 @@
         .footer-actions {
             position: fixed;
             bottom: 0;
-            width: 900px;
+            width: 100%;
+            max-width: 1200px;
             background: white;
-            padding: 15px 40px;
+            padding: 15px 20px;
             display: flex;
             justify-content: space-between;
             align-items: center;
             box-sizing: border-box;
             color: var(--bg-dark);
+            left:50%;
+            transform: translateX(-50%);
         }
 
         .btn-atualizar, .btn-salvar {
@@ -316,7 +319,33 @@
             margin-right: 10px;
             min-width: 150px;
         }
-
+        @media(max-width:992px){
+            .header{
+                padding: 20px;
+                flex-direction: column;
+                gap: 15;
+                text-align: center;
+            }
+            .header > div {
+                justify-content: center;
+            }
+            .tabela-header, .arquivo-item{
+                grid-template-columns: 85px 40px 1fr 70px 120px 100px;
+                padding: 15px 10px;
+                gap: 10px;
+                font-size: 16px;
+            }
+            .arquivo-item > div:nth-child(5),
+            .arquivo-item > div:nth-child(6){
+                font-size: 14px !important;
+            }
+            .file-info b {
+                font-size: 16px;
+            }
+            .id-coluna{
+                font-size: 18px;
+            }
+        }
     </style>
 </head>
 <body>
